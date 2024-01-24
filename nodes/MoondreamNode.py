@@ -57,7 +57,7 @@ class MoondreamNode:
         if self.vision_encoder==None:
             model_path=os.path.join(__file__,'../../checkpoints')
             if os.path.exists(model_path)==False:
-                model_path = snapshot_download("vikhyatk/moondream1",local_dir='./checkpoints',endpoint='https://hf-mirror.com')
+                model_path = snapshot_download("vikhyatk/moondream1",local_dir=model_path,endpoint='https://hf-mirror.com')
             self.vision_encoder = VisionEncoder(model_path)
             self.text_model = TextModel(model_path)
          
