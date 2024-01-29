@@ -12,9 +12,10 @@ from torchvision.transforms.v2 import (
 
 
 class VisionEncoder:
-    def __init__(self, model_path: str = "model") -> None:
+    def __init__(self, model_path: str = "model",device:str="cpu") -> None:
         # Determine if CUDA (GPU) is available and use it; otherwise, use CPU
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device=torch.device(device)
         self.model = torch.jit.load(f"{model_path}/vision.pt").to(self.device).to(dtype=torch.float32)
         self.preprocess = Compose(
             [

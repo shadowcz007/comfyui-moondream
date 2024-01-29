@@ -60,16 +60,21 @@ class MoondreamNode:
                 model_path = snapshot_download("vikhyatk/moondream1",local_dir=model_path,endpoint='https://hf-mirror.com')
             self.vision_encoder = VisionEncoder(model_path)
             self.text_model = TextModel(model_path)
+        # else:
+        #     self.vision_encoder.model.to(self.torch_device)
+        #     self.text_model.text_emb.to(self.torch_device)
+        # self.vision_encoder.model.to('cpu')
          
         question=question[0]
 
         for i in range(len(image)):
             im=image[i]
             im=tensor2pil(im)
-             
+
             image_embeds = self.vision_encoder(im)
+            
             res=self.text_model.answer_question(image_embeds, question)
-         
+
             result.append(res)
-        
+
         return (result,)
