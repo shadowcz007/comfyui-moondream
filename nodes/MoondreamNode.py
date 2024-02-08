@@ -77,16 +77,28 @@ class MoondreamNode:
 
         if self.moondream ==None:
             model_path=os.path.join(__file__,'../../checkpoints')
+            
             if os.path.exists(model_path)==False:
-                model_path = hf_hub_download("vikhyatk/moondream1",
-                                               local_dir=model_path,
-                                               filename="config.json",
-                                               endpoint='https://hf-mirror.com')
-                model_path = hf_hub_download("vikhyatk/moondream1",
+                os.mkdir(model_path)
+            if os.path.exists(model_path):
+
+                config_json=os.path.join(__file__,'../../checkpoints/config.json')
+                if os.path.exists(config_json)==False:
+                    hf_hub_download("vikhyatk/moondream1",
+                                                local_dir=model_path,
+                                                filename="config.json",
+                                                endpoint='https://hf-mirror.com')
+                
+                model_safetensors=os.path.join(__file__,'../../checkpoints/model.safetensors')
+                if os.path.exists(model_safetensors)==False:
+                    hf_hub_download("vikhyatk/moondream1",
                                                local_dir=model_path,
                                                filename="model.safetensors",
                                                endpoint='https://hf-mirror.com')
-                model_path = hf_hub_download("vikhyatk/moondream1",
+                
+                tokenizer_json=os.path.join(__file__,'../../checkpoints/tokenizer.json')
+                if os.path.exists(tokenizer_json)==False:
+                    hf_hub_download("vikhyatk/moondream1",
                                                local_dir=model_path,
                                                filename="tokenizer.json",
                                                endpoint='https://hf-mirror.com')
