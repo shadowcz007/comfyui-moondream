@@ -5,14 +5,20 @@ import numpy as np
 
 import torch
 from comfy.model_management import get_torch_device
-from huggingface_hub import snapshot_download
+from huggingface_hub import hf_hub_download
 
 # print('#######s',os.path.join(__file__,'../'))
 
 sys.path.append(os.path.join(__file__,'../../'))
                 
-from moondream import VisionEncoder, TextModel
+# from moondream import VisionEncoder, TextModel,detect_device
 # from transformers import TextIteratorStreamer
+
+from moondream import Moondream, detect_device
+from threading import Thread
+from transformers import TextIteratorStreamer, CodeGenTokenizerFast as Tokenizer
+
+
 
 # Tensor to PIL
 def tensor2pil(image):
@@ -24,19 +30,23 @@ def pil2tensor(image):
 
 class MoondreamNode:
     def __init__(self):
-        self.torch_device = get_torch_device()
-        self.vision_encoder = None
-        self.text_model = None
+        self.device = torch.device("cpu")
+        self.dtype = torch.float32
+
+        # get_torch_device()
+        self.moondream = None
+        self.tokenizer = None
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
             "image": ("IMAGE",),
-             "question": ("STRING", 
+            "question": ("STRING", 
                          {
                             "multiline": True, 
                             "default": '',
                             "dynamicPrompts": False
                           }),
+            "device": (["cpu","cuda"],),
                              },
 
             
@@ -51,19 +61,40 @@ class MoondreamNode:
     INPUT_IS_LIST = True
     OUTPUT_IS_LIST = (True,)
   
-    def run(self,image,question):
+    def run(self,image,question,device):
       
         result=[]
-        if self.vision_encoder==None:
+
+        if device[0]!=self.device.type and device[0]=='cpu':
+            self.device=torch.device(device[0])
+            self.dtype = torch.float32
+            self.moondream =None
+        elif device[0]!=self.device.type:
+            device, dtype = detect_device()
+            self.device=device
+            self.dtype =dtype
+            self.moondream =None
+
+        if self.moondream ==None:
             model_path=os.path.join(__file__,'../../checkpoints')
             if os.path.exists(model_path)==False:
-                model_path = snapshot_download("vikhyatk/moondream1",local_dir=model_path,endpoint='https://hf-mirror.com')
-            self.vision_encoder = VisionEncoder(model_path)
-            self.text_model = TextModel(model_path)
-        # else:
-        #     self.vision_encoder.model.to(self.torch_device)
-        #     self.text_model.text_emb.to(self.torch_device)
-        # self.vision_encoder.model.to('cpu')
+                model_path = hf_hub_download("vikhyatk/moondream1",
+                                               local_dir=model_path,
+                                               filename="config.json",
+                                               endpoint='https://hf-mirror.com')
+                model_path = hf_hub_download("vikhyatk/moondream1",
+                                               local_dir=model_path,
+                                               filename="model.safetensors",
+                                               endpoint='https://hf-mirror.com')
+                model_path = hf_hub_download("vikhyatk/moondream1",
+                                               local_dir=model_path,
+                                               filename="tokenizer.json",
+                                               endpoint='https://hf-mirror.com')
+            
+            self.tokenizer = Tokenizer.from_pretrained(model_path)
+            self.moondream = Moondream.from_pretrained(model_path).to(device=self.device, dtype=self.dtype)
+            self.moondream.eval()
+
          
         question=question[0]
 
@@ -71,9 +102,11 @@ class MoondreamNode:
             im=image[i]
             im=tensor2pil(im)
 
-            image_embeds = self.vision_encoder(im)
+            image_embeds = self.moondream.encode_image(im)
             
-            res=self.text_model.answer_question(image_embeds, question)
+            # streamer = TextIteratorStreamer(self.tokenizer, skip_special_tokens=True)
+        
+            res=self.moondream.answer_question(image_embeds, question,self.tokenizer)
 
             result.append(res)
 

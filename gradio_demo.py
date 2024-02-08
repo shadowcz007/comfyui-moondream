@@ -1,54 +1,66 @@
+import argparse
+import torch
 import re
 import gradio as gr
-from moondream import VisionEncoder, TextModel
-from PIL import Image
-from huggingface_hub import snapshot_download
+from moondream import Moondream, detect_device
 from threading import Thread
-from transformers import TextIteratorStreamer
+from transformers import TextIteratorStreamer, CodeGenTokenizerFast as Tokenizer
 
-model_path = snapshot_download("vikhyatk/moondream1")
+parser = argparse.ArgumentParser()
+parser.add_argument("--cpu", action="store_true")
+args = parser.parse_args()
 
-vision_encoder = VisionEncoder(model_path)
-text_model = TextModel(model_path)
+if args.cpu:
+    device = torch.device("cpu")
+    dtype = torch.float32
+else:
+    device, dtype = detect_device()
+    if device != torch.device("cpu"):
+        print("Using device:", device)
+        print("If you run into issues, pass the `--cpu` flag to this script.")
+        print()
 
-# model inference
-def moondream(img, prompt):
-    
-    image_embeds = vision_encoder(img)
+model_id = "vikhyatk/moondream1"
+tokenizer = Tokenizer.from_pretrained(model_id)
+moondream = Moondream.from_pretrained(model_id).to(device=device, dtype=dtype)
+moondream.eval()
 
-    streamer = TextIteratorStreamer(text_model.tokenizer, skip_special_tokens=True)
-    generation_kwargs = dict(
-        image_embeds=image_embeds, question=prompt, streamer=streamer
+
+def answer_question(img, prompt):
+    image_embeds = moondream.encode_image(img)
+    streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True)
+    thread = Thread(
+        target=moondream.answer_question,
+        kwargs={
+            "image_embeds": image_embeds,
+            "question": prompt,
+            "tokenizer": tokenizer,
+            "streamer": streamer,
+        },
     )
-    thread = Thread(target=text_model.answer_question, kwargs=generation_kwargs)
     thread.start()
 
     buffer = ""
     for new_text in streamer:
-        # check for the end of generated text and yield the generated token
-        if not new_text.endswith("<") and not new_text.endswith("END"):
-          buffer += new_text
-          yield buffer
-        else:
-          new_text = re.sub("<$", "", re.sub("END$", "", new_text))
-          buffer += new_text
-          yield buffer
+        clean_text = re.sub("<$|END$", "", new_text)
+        buffer += clean_text
+        yield buffer.strip("<END")
 
-# Using Gradio Blocks API
+
 with gr.Blocks() as demo:
-  gr.HTML("<h1><center>🌔 moondream</center></h1>")
-  gr.HTML("<h3><center>A tiny vision language model. <a href='https://github.com/vikhyat/moondream' target='blank_'>GitHub</a></center></h3>")
-  with gr.Group():
+    gr.Markdown(
+        """
+        # 🌔 moondream
+        ### A tiny vision language model. [GitHub](https://github.com/vikhyat/moondream)
+        """
+    )
     with gr.Row():
-      prompt = gr.Textbox(label='Input Prompt for the model',placeholder='Type whatever you want to ask about the image',scale=4 )
-      submit = gr.Button('Submit', scale=1,)
+        prompt = gr.Textbox(label="Input Prompt", placeholder="Type here...", scale=4)
+        submit = gr.Button("Submit")
     with gr.Row():
-      img = gr.Image(type='pil', label='Upload or Drag an Image')
-      output = gr.TextArea(label="Bot's response to the user query-", info='The response might take a few seconds..' )
-  
-  # handling events
-  submit.click(moondream, [img, prompt], output)
-  prompt.submit(moondream, [img, prompt], output)
+        img = gr.Image(type="pil", label="Upload an Image")
+        output = gr.TextArea(label="Response")
+    submit.click(answer_question, [img, prompt], output)
+    prompt.submit(answer_question, [img, prompt], output)
 
-# launch gradio demo with debug mode on
 demo.queue().launch(debug=True)
