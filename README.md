@@ -4,7 +4,7 @@ This is a thin wrapper custom node for [moondream](https://github.com/vikhyat/mo
 
 moondream is a tiny vision language model
 
-
+![1](./assets/nodes2.png)
 ![x](./assets/nodes.png)
 
 
