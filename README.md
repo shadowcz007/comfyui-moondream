@@ -1,5 +1,10 @@
 # 🌔 comfyui-moondream
 
+> [寻求帮助 Mixlab nodes discord](https://discord.gg/cXs9vZSqeK)
+
+> [推荐：mixlab-nodes](https://github.com/shadowcz007/comfyui-mixlab-nodes)
+
+
 This is a thin wrapper custom node for [moondream](https://github.com/vikhyat/moondream). 
 
 moondream is a tiny vision language model
